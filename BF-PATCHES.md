@@ -13,16 +13,49 @@ merge back.
 
 ## How this fork is laid out
 
-- `main` is an untouched mirror of upstream. Never commit to it.
-- `fix/BI-2499-avm-capability-host-output` holds the patches, rebased onto an
-  upstream tag. If a second patch is ever added, rename this to something
-  role-based: consumers pin to tags, never to a branch, so the name is free to
-  change.
+- `main` is an untouched mirror of upstream. Never commit to it, and never
+  merge `bf-patches` into it: the whole point is that
+  `git merge --ff-only upstream/main` always works.
+- `bf-patches` is the integration branch. It holds one commit per fix, in a
+  straight line, and every released tag is cut from it.
 - Tags are named `<upstream tag>-bf.<n>`, so `v0.11.0-bf.1` is upstream
-  `v0.11.0` plus the first patch set. Consumers pin to a tag, never a branch.
+  `v0.11.0` plus the first patch set. Consumers pin to a tag, never a branch,
+  and a published tag is never moved — new content means a new tag.
 - GitHub Actions are disabled. The upstream workflows run end-to-end tests
   against real Azure subscriptions and have no credentials here, so they would
   fail on every push.
+
+## Adding a patch
+
+Each fix gets its own short-lived branch and its own pull request, so it is
+reviewed on its own and carries its ticket. The branch is named for the ticket,
+the commit scope repeats it:
+
+```bash
+git switch -c fix/BI-XXXX-short-description bf-patches
+# ...one commit: fix(BI-XXXX): what it does
+git push -u origin fix/BI-XXXX-short-description
+```
+
+Open the pull request against `bf-patches` and use **Rebase and merge**, never
+"Create a merge commit". `bf-patches` has to stay linear or the rebase onto the
+next upstream release stops being a rebase and becomes a merge conflict to
+untangle.
+
+Then cut a new tag and bump `?ref=` in the consuming repository.
+
+## Removing a patch
+
+When an upstream pull request is released, drop that single commit and re-tag:
+
+```bash
+git fetch upstream --tags
+git rebase --onto <commit before it> <the commit> bf-patches
+git tag v0.11.4-bf.2
+```
+
+When the last patch goes, point `source` back at the registry, restore the
+`version` argument and archive this fork.
 
 ## Current patches
 
